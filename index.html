@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Carte Livreurs Rabat - OCR + Rabat par défaut</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <style>
+    #map { height: 600px; width: 100%; }
+    #searchBox { margin: 10px; width: 300px; padding: 5px; }
+    #result { margin: 10px; font-weight: bold; }
+    #scanBtn { margin: 10px; padding: 5px 10px; }
+    video { width: 100%; max-width: 400px; display: none; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+<h2>Carte des livreurs - Rabat</h2>
+<input type="text" id="searchBox" placeholder="Tapez l'adresse ici" />
+<button id="scanBtn">Scanner l'adresse avec caméra</button>
+<div id="result"></div>
+<video id="video" autoplay></video>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@2.1.5/dist/tesseract.min.js"></script>
+
+<script>
+  var map = L.map('map').setView([34.02, -6.84], 13);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+  // --- Zones et livreurs (Rabat) ---
+  var zones = [];
+
+  function addZone(coords, color, livreur) {
+    var polygon = L.polygon(coords.map(c=>[c[1],c[0]]), {color: color}).addTo(map);
+    polygon.livreur = livreur;
+    zones.push(polygon);
+  }
+
+  addZone([
+    [-6.85118962677933,33.99724487914047],
+    [-6.86045879454548,34.000802553520955],
+    [-6.851790406171517,34.0115458256453],
+    [-6.8442377509549885,34.0180907291103],
+    [-6.8418346333862985,34.0215052610487],
+    [-6.840633097837269,34.023354701283324],
+    [-6.842435436014796,34.02655563047014],
+    [-6.838315805896514,34.03295712663305],
+    [-6.835054432051976,34.0327437512086],
+    [-6.832136360719062,34.02748032086937],
+    [-6.821751459795422,34.02456395538829],
+    [-6.820721552265837,34.0180195510185],
+    [-6.819777470364187,34.0137511893638],
+    [-6.821322331658024,34.010194057385704],
+    [-6.834282001405086,34.0003044475195],
+    [-6.839345749368334,33.99276197066936],
+    [-6.8456110201736635,33.99212153966687],
+    [-6.851275511585811,33.995252489792705],
+    [-6.851275511585811,33.99717369752014]
+  ], 'red', 'Nasser');
+
+  addZone([
+    [-6.813168932991573,34.00500039103078],
+    [-6.8383158418387495,33.99183690211653],
+    [-6.839259931713002,33.9850053277419],
+    [-6.845010248753056,33.98208750333106],
+    [-6.836170209124276,33.97048638151635],
+    [-6.821322375572834,33.96479200031037],
+    [-6.805616285747618,33.98045063114769],
+    [-6.797720328020546,33.98578814163915],
+    [-6.796776246118867,33.98884816314718],
+    [-6.813003708548308,34.00520855731099]
+  ], 'blue', 'Hassan');
+
+  addZone([
+    [-6.8458697700696405,34.02872407280837],
+    [-6.842608396225131,34.02445624945322],
+    [-6.845011513794816,34.01776956133473],
+    [-6.852735820266105,34.01122463310844],
+    [-6.862348290542826,33.99984094753604],
+    [-6.852392517756556,33.99699478773273],
+    [-6.851362610227028,33.9935792700997],
+    [-6.84415325752002,33.990448258316675],
+    [-6.848101236383542,33.98020050404983],
+    [-6.861490034268002,33.96838558758725],
+    [-6.87110248192937,33.9725139567262],
+    [-6.887237699893035,33.96767387240688],
+    [-6.901828056561811,33.96454190635242],
+    [-6.90732089672025,33.96995159346069],
+    [-6.862176616673736,34.01236299690031],
+    [-6.846041407846798,34.02886637309028]
+  ], 'green', 'Othmane');
+
+  addZone([
+    [-6.885692968768581,33.959559025778844],
+    [-6.88157333865027,33.96838569716405],
+    [-6.871274263354536,33.97137516851343],
+    [-6.861490141823083,33.9676739027818],
+    [-6.845354923859389,33.97963125770197],
+    [-6.8341975922898826,33.96795862124924],
+    [-6.8218387019350075,33.963972475964155],
+    [-6.810681370364421,33.94489333743192],
+    [-6.828704752131472,33.939339650160605],
+    [-6.868012889509998,33.94104851560256],
+    [-6.886036271278101,33.95856240856358]
+  ], 'orange', 'Abderahim');
+
+  // --- Fonction point dans polygone ---
+  function pointDansPolygone(point, vs) {
+    var x = point[0], y = point[1];
+    var inside = false;
+    for (var i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+        var xi = vs[i][0], yi = vs[i][1];
+        var xj = vs[j][0], yj = vs[j][1];
+        var intersect = ((yi > y) != (yj > y)) &&
+                        (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+  }
+
+  function trouverLivreur(lat, lng) {
+    var point = [lat, lng];
+    for (var i = 0; i < zones.length; i++) {
+      var coords = zones[i].getLatLngs()[0].map(c => [c.lat, c.lng]);
+      if (pointDansPolygone(point, coords)) return zones[i].livreur;
+    }
+    return "Adresse hors zones";
+  }
+
+  // --- Recherche via Nominatim (forcer Rabat) ---
+  function chercherAdresse(adresse) {
+    fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(adresse + ", Rabat"))
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.length > 0) {
+          var lat = parseFloat(data[0].lat);
+          var lon = parseFloat(data[0].lon);
+          var livreur = trouverLivreur(lat, lon);
+          document.getElementById('result').innerHTML = "Livreur : " + livreur;
+          L.marker([lat, lon]).addTo(map)
+            .bindPopup("Adresse: " + adresse + "<br>Livrer par: " + livreur)
+            .openPopup();
+          map.setView([lat, lon], 15);
+        } else {
+          document.getElementById('result').innerHTML = "Adresse non trouvée";
+        }
+      });
+  }
+
+  document.getElementById('searchBox').addEventListener('change', function() {
+    chercherAdresse(this.value);
+  });
+
+  // --- Scanner avec caméra (Tesseract.js) ---
+  var video = document.getElementById('video');
+  var scanBtn = document.getElementById('scanBtn');
+
+  scanBtn.addEventListener('click', function() {
+    video.style.display = 'block';
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then(stream => { video.srcObject = stream; })
+      .catch(err => alert("Erreur caméra: " + err));
+
+    // Scanner toutes les 5 secondes
+    setInterval(() => {
+      if (video.srcObject) {
+        var canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        Tesseract.recognize(canvas, 'eng')
+          .then(result => {
+            var texte = result.data.text.trim();
+            if (texte.length > 3) {
+              document.getElementById('searchBox').value = texte;
+              chercherAdresse(texte);
+            }
+          });
+      }
+    }, 5000);
+  });
+</script>
+
+</body>
+</html>
